@@ -40,7 +40,7 @@ static bool is_corner_pixel(const Image *img, int x, int y) {
 	bool is_trans_bottom_left  = (x > 0 && y < h-1)   ? (img->data[INDEX_IMGP(img, (x-1), (y+1)) + 3] == 0) : true;
 	bool is_trans_bottom_right = (x < w-1 && y < h-1) ? (img->data[INDEX_IMGP(img, (x+1), (y+1)) + 3] == 0) : true;
 
-	// Edge case: The Pixel is protruding from the image. That means that the pixel is only connected on main side with
+	// Edge case 1: The Pixel is protruding from the image. That means that the pixel is only connected on main side with
 	// the 2 diagnoal sides being non transparent. i.e tetris T block eg:
 	//
 	//     +---+---+---+
@@ -73,6 +73,25 @@ static bool is_corner_pixel(const Image *img, int x, int y) {
 		|| (is_trans_top && is_trans_top_right && is_trans_right)
 		|| (is_trans_right && is_trans_bottom_right && is_trans_bottom)
 		|| (is_trans_bottom && is_trans_bottom_left && is_trans_left)) {
+		return true;
+	}
+
+	// Edge Case 2: Do convex corners are infront of each another
+	//
+	//  +---+---+---+---+
+	//  |   |   |   |   |
+	//  +---+---+---+---+
+	//  |   | * | 0 |   |
+	//  +---+---+---+---+
+	//  |   | 0 | * |   |
+	//  +---+---+---+---+
+	//  |   |   |   |   |
+	//  +---+---+---+---+
+	//
+	if ((is_trans_left && !is_trans_top_left && is_trans_top)
+		|| (is_trans_top && !is_trans_top_right && is_trans_right)
+		|| (is_trans_right && !is_trans_bottom_right && is_trans_bottom)
+		|| (is_trans_bottom && !is_trans_bottom_left && is_trans_left)) {
 		return true;
 	}
 
