@@ -10,6 +10,12 @@
 
 #include "main.h"
 
+typedef struct {
+	unsigned char *data; // Pointer to the RGBA array
+	int width;           // Width of the image
+	int height;          // Height of the image
+	int channels;        // Number of channels in the image
+} Image;
 
 #define INDEX_IMG(i, x, y) (i.width * y + x) * i.channels
 #define INDEX_IMGP(i, x, y) (i->width * y + x) * i->channels
@@ -107,6 +113,10 @@ static bool is_corner_pixel(const Image *img, int x, int y) {
 	return false;
 }
 
+typedef struct RectilinearPoint {
+	int x, y;
+} RectilinearPoint;
+
 static void extract_polygon(Image *img, RectilinearPoint **points) {
 	for(int y = 0; y < img->height; y++) {
 		for(int x = 0; x < img->width; x++) {
@@ -166,29 +176,34 @@ static int is_less_by_axis(const void *_a, const void *_b) {
 		return a.y == b.y ? a.x - b.x : a.y - b.y;
 }
 
-const RectilinearPoint *rectilinearize_image(Image *img, size_t *point_count) {
-	RectilinearPoint *points = NULL;
-	extract_polygon(img, &points);
-	if (points == NULL) {
-		return NULL;
+void rectilinearize_image(unsigned char *data, int width, int height, int **points, size_t *point_count) {
+	RectilinearPoint *rect_points = NULL;
+
+	Image img = {
+		.data = data, .width = width, .height = height, .channels = 4
+	};
+	extract_polygon(&img, &rect_points);
+
+	if (rect_points == NULL) {
+		return;
 	}
 
 	// Final sorted points
 	RectilinearPoint *sorted_points = NULL;
-	arrput(sorted_points, points[0]);
+	arrput(sorted_points, rect_points[0]);
 
 	sort_by_x = false;
-	qsort(points, arrlenu(points), sizeof *points, is_less_by_axis);
-	Edge *h_edges = get_edges(points, arrlenu(points), false);
+	qsort(rect_points, arrlenu(rect_points), sizeof *rect_points, is_less_by_axis);
+	Edge *h_edges = get_edges(rect_points, arrlenu(rect_points), false);
 	if (h_edges == NULL) {
-		return NULL;
+		return;
 	}
 
 	sort_by_x = true;
-	qsort(points, arrlenu(points), sizeof *points, is_less_by_axis);
-	Edge *v_edges = get_edges(points, arrlenu(points), true);
+	qsort(rect_points, arrlenu(rect_points), sizeof *rect_points, is_less_by_axis);
+	Edge *v_edges = get_edges(rect_points, arrlenu(rect_points), true);
 	if (v_edges == NULL) {
-		return NULL;
+		return;
 	}
 
 	bool is_y_axis = true;
@@ -208,20 +223,30 @@ const RectilinearPoint *rectilinearize_image(Image *img, size_t *point_count) {
 		is_y_axis = !is_y_axis;
 	}
 
-	if (point_count) {
-		*point_count = arrlenu(sorted_points);
+	if (points && point_count) {
+		size_t p_count = arrlenu(sorted_points);
+		int *p = malloc(sizeof *p * (p_count << 1));
+		if (p == NULL) {
+			return;
+		}
+		for (size_t i = 0; i < p_count; ++i) {
+			p[(i << 1)]     = sorted_points[i].x;
+			p[(i << 1) + 1] = sorted_points[i].y;
+		}
+
+		*points = p;
+		*point_count = p_count;
 	}
-	return sorted_points;
 }
 
-const RectilinearPoint *rectilinearize_file(Cstr filename, size_t *point_count) {
+void rectilinearize_file(const char *filename, int **points, size_t *point_count) {
 	Image img = {0};
 	img.data = stbi_load(filename, &img.width, &img.height, &img.channels, 4);
 	if (img.channels != 4) {
 		return;
 	}
 
-	return rectilinearize_image(&img, point_count);
+	rectilinearize_image(img.data, img.width, img.height, points, point_count);
 }
 
 #ifdef BINARY
@@ -241,12 +266,14 @@ int main(int argc, char **argv) {
 		PANIC("Missing file argument.");
 	}
 
-	const Point *points = rectilinearize_file(filename, NULL);
+	int *points = NULL;
+	size_t point_count = 0;
+	rectilinearize_file(filename, &points, &point_count);
 
 	int width, height = width = 0;
-	for (int i = 0; i < arrlen(points); ++i) {
-		width = points[i].x > width ? points[i].x : width;
-		height = points[i].y > height ? points[i].y : height;
+	for (size_t i = 0; i < point_count; i+=2) {
+		width  = points[i]   > width  ? points[i]   : width;
+		height = points[i+1] > height ? points[i+1] : height;
 	}
 
 	if (svg_output) {
@@ -298,9 +325,9 @@ int main(int argc, char **argv) {
 			"		stroke-width=\"1px\">\n", width, height, width, height
 		);
 
-		for (int i = 0; i < arrlen(points) - 1; i++) {
+		for (size_t i = 0; i < point_count - 2; i+=2) {
 			printf("		<line x1=\"%dpx\" y1=\"%dpx\" x2=\"%dpx\" y2=\"%dpx\"/>\n",
-					points[i].x, points[i].y, points[i+1].x, points[i+1].y);
+					points[i], points[i+1], points[i+2], points[i+3]);
 		}
 
 		printf(
@@ -309,10 +336,10 @@ int main(int argc, char **argv) {
 		 );
 	} else {
 		printf("[\n");
-		for (int i = 0; i < arrlen(points) - 1; ++i) {
-			printf("\t{ \"x\": %d, \"y\": %d },\n", points[i].x, points[i].y);
+		for (size_t i = 0; i < point_count - 2; i+=2) {
+			printf("\t{ \"x\": %d, \"y\": %d },\n", points[i], points[i+1]);
 		}
-		printf("\t{ \"x\": %d, \"y\": %d }\n", arrlast(points).x, arrlast(points).y);
+		printf("\t{ \"x\": %d, \"y\": %d }\n", points[point_count - 2], points[point_count - 1]);
 		printf("]\n");
 	}
 }
