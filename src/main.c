@@ -226,6 +226,10 @@ const RectilinearPoint *rectilinearize_image(Image *img, size_t *point_count) {
 const RectilinearPoint *rectilinearize_file(Cstr filename, size_t *point_count) {
 	Image img = {0};
 	read_png_file(filename, &img);
+	if (img.channels != 4) {
+		return;
+	}
+
 	return rectilinearize_image(&img, point_count);
 }
 
