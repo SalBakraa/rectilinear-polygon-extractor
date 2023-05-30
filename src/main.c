@@ -10,9 +10,6 @@
 
 #include "main.h"
 
-static void read_png_file(const char *filename, Image *img) {
-	img->data = stbi_load(filename, &img->width, &img->height, &img->channels, 4);
-}
 
 #define INDEX_IMG(i, x, y) (i.width * y + x) * i.channels
 #define INDEX_IMGP(i, x, y) (i->width * y + x) * i->channels
@@ -219,7 +216,7 @@ const RectilinearPoint *rectilinearize_image(Image *img, size_t *point_count) {
 
 const RectilinearPoint *rectilinearize_file(Cstr filename, size_t *point_count) {
 	Image img = {0};
-	read_png_file(filename, &img);
+	img.data = stbi_load(filename, &img.width, &img.height, &img.channels, 4);
 	if (img.channels != 4) {
 		return;
 	}
