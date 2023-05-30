@@ -116,7 +116,7 @@ static bool is_corner_pixel(const Image *img, int x, int y) {
 	return false;
 }
 
-static void extract_polygon(Image *img, Point **points) {
+static void extract_polygon(Image *img, RectilinearPoint **points) {
 	for(int y = 0; y < img->height; y++) {
 		for(int x = 0; x < img->width; x++) {
 			// Check if the pixel is transparent
@@ -125,7 +125,7 @@ static void extract_polygon(Image *img, Point **points) {
 			}
 
 			if (is_corner_pixel(img, x, y)) {
-				Point point = { .x = x, .y = y };
+				RectilinearPoint point = { .x = x, .y = y };
 				arrput(*points, point);
 			}
 		}
@@ -133,10 +133,10 @@ static void extract_polygon(Image *img, Point **points) {
 }
 
 typedef struct Edge {
-	Point key, value;
+	RectilinearPoint key, value;
 } Edge;
 
-static Edge *get_edges(Point *points, size_t point_count, bool cmp_by_x) {
+static Edge *get_edges(RectilinearPoint *points, size_t point_count, bool cmp_by_x) {
 	Edge *map = NULL;
 	for (size_t i = 0; i < point_count;) {
 		size_t last_idx = point_count;
@@ -148,7 +148,7 @@ static Edge *get_edges(Point *points, size_t point_count, bool cmp_by_x) {
 		}
 
 		bool in_edge = false;
-		Point *first_point = NULL;
+		RectilinearPoint *first_point = NULL;
 		for (size_t j = i; j < last_idx; ++j) {
 			if (in_edge) {
 				hmput(map, *first_point, points[j]);
@@ -168,22 +168,22 @@ static Edge *get_edges(Point *points, size_t point_count, bool cmp_by_x) {
 
 static bool sort_by_x = true;
 static int is_less_by_axis(const void *_a, const void *_b) {
-	Point a = *((Point *) _a); Point b = *((Point *) _b);
+	RectilinearPoint a = *((RectilinearPoint *) _a); RectilinearPoint b = *((RectilinearPoint *) _b);
 	if (sort_by_x)
 		return a.x == b.x ? a.y - b.y : a.x - b.x;
 	else
 		return a.y == b.y ? a.x - b.x : a.y - b.y;
 }
 
-const Point *rectilinearize_image(Image *img, size_t *point_count) {
-	Point *points = NULL;
+const RectilinearPoint *rectilinearize_image(Image *img, size_t *point_count) {
+	RectilinearPoint *points = NULL;
 	extract_polygon(img, &points);
 	if (points == NULL) {
 		return NULL;
 	}
 
 	// Final sorted points
-	Point *sorted_points = NULL;
+	RectilinearPoint *sorted_points = NULL;
 	arrput(sorted_points, points[0]);
 
 	sort_by_x = false;
@@ -202,7 +202,7 @@ const Point *rectilinearize_image(Image *img, size_t *point_count) {
 
 	bool is_y_axis = true;
 	while (true) {
-		Point next_point;
+		RectilinearPoint next_point;
 		if (is_y_axis) {
 			next_point = hmget(h_edges, arrlast(sorted_points));
 		} else {
@@ -223,7 +223,7 @@ const Point *rectilinearize_image(Image *img, size_t *point_count) {
 	return sorted_points;
 }
 
-const Point *rectilinearize_file(Cstr filename, size_t *point_count) {
+const RectilinearPoint *rectilinearize_file(Cstr filename, size_t *point_count) {
 	Image img = {0};
 	read_png_file(filename, &img);
 	return rectilinearize_image(&img, point_count);
