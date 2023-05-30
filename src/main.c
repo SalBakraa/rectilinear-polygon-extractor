@@ -12,12 +12,6 @@
 
 static void read_png_file(const char *filename, Image *img) {
 	img->data = stbi_load(filename, &img->width, &img->height, &img->channels, 4);
-	// Convert the image to to BGR(A)
-	for(int i = 0; i < img->width * img->height * img->channels; i += img->channels){
-		unsigned char t = img->data[i];
-		img->data[i]    = img->data[i+2];
-		img->data[i+2]  = t;
-	}
 }
 
 #define INDEX_IMG(i, x, y) (i.width * y + x) * i.channels
