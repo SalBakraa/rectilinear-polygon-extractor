@@ -31,6 +31,12 @@
 #	define EXTRA_CFLAGS "-O2"
 #endif
 
+#ifdef __linux__
+#	define CC "cc"
+#elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+#	define CC "cl.exe"
+#endif
+
 #define WARNING_FLAGS "-Wall", "-Wextra", "-Wshadow", "-Wconversion", "-Wduplicated-cond", "-Wduplicated-branches", "-Wrestrict", "-Wnull-dereference", "-Wjump-misses-init", "-Wimplicit-fallthrough"
 #define CFLAGS EXTRA_CFLAGS, WARNING_FLAGS, CONCAT("-I", LIB_DIR), "-lm"
 
@@ -46,7 +52,7 @@ static void create_ccls_file(Cstr binary_path) {
 static Cstr build_stb_lib(Cstr lib_file, Cstr impl_macro) {
 	Cstr out_file = PATH(BUILD_DIR, CONCAT(NOEXT(BASENAME(lib_file)), ".o"));
 	if (IS_NEWER(lib_file, out_file)) {
-		CMD("cc", EXTRA_CFLAGS, CONCAT("-D", impl_macro), "-xc", "-o", out_file, "-c", lib_file);
+		CMD(CC, EXTRA_CFLAGS, CONCAT("-D", impl_macro), "-xc", "-o", out_file, "-c", lib_file);
 	}
 	return out_file;
 }
@@ -73,7 +79,7 @@ static void build(void) {
 
 	if (should_build_bin) {
 		Cmd build_cmd = {
-			.line = cstr_array_concat(CSTR_ARRAY_MAKE("cc", CFLAGS, "-DBINARY", "-o", bin_name), source_files),
+			.line = cstr_array_concat(CSTR_ARRAY_MAKE(CC, CFLAGS, "-DBINARY", "-o", bin_name), source_files),
 		};
 		INFO("CMD: %s", cmd_show(build_cmd));
 		cmd_run_sync(build_cmd);
@@ -82,7 +88,7 @@ static void build(void) {
 	INFO("Building static library:");
 	Cstr out_file = PATH(BUILD_DIR, CONCAT(NOEXT(BASENAME(in_file)), ".o"));
 	if (IS_NEWER(in_file, out_file)) {
-		CMD("cc", CFLAGS, "-o", out_file, "-c", in_file);
+		CMD(CC, CFLAGS, "-o", out_file, "-c", in_file);
 	}
 
 	Cstr lib_name = PATH(BUILD_DIR, CONCAT("lib", BINARY_NAME, ".a"));
