@@ -105,6 +105,19 @@ int main(int argc, char **argv)
 {
 	GO_REBUILD_URSELF(argc, argv);
 
+	int clean_build_files = 0;
+	for (int i = 1; i < argc; ++i) {
+		if (STARTS_WITH(argv[i], "--clean")) {
+			clean_build_files = 1;
+			continue;
+		}
+	}
+
+	if (clean_build_files) {
+		RM(BUILD_DIR);
+		RM(PATH(SRC_DIR, ".ccls"));
+	}
+
 #ifdef DEBUG
 	create_ccls_file(argv[0]);
 #endif
