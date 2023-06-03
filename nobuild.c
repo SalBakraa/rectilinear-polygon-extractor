@@ -25,20 +25,27 @@
 
 // Build macros
 
-#ifdef DEBUG
-#	define EXTRA_CFLAGS "-ggdb", "-Og"
-#else
-#	define EXTRA_CFLAGS "-O2"
-#endif
-
 #ifdef __linux__
 #	define CC "cc"
+#
+#	ifdef DEBUG
+#		define EXTRA_CFLAGS "-ggdb", "-Og"
+#	else
+#		define EXTRA_CFLAGS "-O2"
+#	endif
+#	define WARNING_FLAGS "-Wall", "-Wextra", "-Wshadow", "-Wconversion", "-Wduplicated-cond", "-Wduplicated-branches", "-Wrestrict", "-Wnull-dereference", "-Wjump-misses-init", "-Wimplicit-fallthrough"
+#	define CFLAGS EXTRA_CFLAGS, WARNING_FLAGS, CONCAT("-I", LIB_DIR), "-lm"
 #elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 #	define CC "cl.exe"
+#
+#	ifdef DEBUG
+#		define EXTRA_CFLAGS "/Od"
+#	else
+#		define EXTRA_CFLAGS "/O2"
+#	endif
+#	define LINKER_FLAGS ""
+#	define CFLAGS EXTRA_CFLAGS,"/W4", CONCAT("/I", LIB_DIR)
 #endif
-
-#define WARNING_FLAGS "-Wall", "-Wextra", "-Wshadow", "-Wconversion", "-Wduplicated-cond", "-Wduplicated-branches", "-Wrestrict", "-Wnull-dereference", "-Wjump-misses-init", "-Wimplicit-fallthrough"
-#define CFLAGS EXTRA_CFLAGS, WARNING_FLAGS, CONCAT("-I", LIB_DIR), "-lm"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -52,7 +59,11 @@ static void create_ccls_file(Cstr binary_path) {
 static Cstr build_stb_lib(Cstr lib_file, Cstr impl_macro) {
 	Cstr out_file = PATH(BUILD_DIR, CONCAT(NOEXT(BASENAME(lib_file)), ".o"));
 	if (IS_NEWER(lib_file, out_file)) {
+#ifdef __linux__
 		CMD(CC, EXTRA_CFLAGS, CONCAT("-D", impl_macro), "-xc", "-o", out_file, "-c", lib_file);
+#elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+		CMD(CC, EXTRA_CFLAGS, CONCAT("/D", impl_macro), "/Tc", "/c", lib_file, "/link", CONCAT("/out:", out_file));
+#endif
 	}
 	return out_file;
 }
@@ -78,9 +89,15 @@ static void build(void) {
 	});
 
 	if (should_build_bin) {
+#ifdef __linux__
 		Cmd build_cmd = {
 			.line = cstr_array_concat(CSTR_ARRAY_MAKE(CC, CFLAGS, "-DBINARY", "-o", bin_name), source_files),
 		};
+#elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+		Cmd build_cmd = {
+			.line = cstr_array_concat(CSTR_ARRAY_MAKE(CC, CFLAGS, "/DBINARY", "/Fe", bin_name), source_files),
+		};
+#endif
 		INFO("CMD: %s", cmd_show(build_cmd));
 		cmd_run_sync(build_cmd);
 	}
@@ -88,12 +105,20 @@ static void build(void) {
 	INFO("Building static library:");
 	Cstr out_file = PATH(BUILD_DIR, CONCAT(NOEXT(BASENAME(in_file)), ".o"));
 	if (IS_NEWER(in_file, out_file)) {
+#ifdef __linux__
 		CMD(CC, CFLAGS, "-o", out_file, "-c", in_file);
+#elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+		CMD(CC, CFLAGS, "/Fo", out_file, "/c", in_file);
+#endif
 	}
 
 	Cstr lib_name = PATH(BUILD_DIR, CONCAT("lib", BINARY_NAME, ".a"));
 	if (IS_NEWER(out_file, lib_name)) {
+#ifdef __linux__
 		CMD("ar", "rcs", lib_name, out_file);
+#elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+		CMD("lib", out_file);
+#endif
 	}
 
 	if (IS_NEWER(PATH(SRC_DIR, "main.h"), PATH(BUILD_DIR, CONCAT(BINARY_NAME, ".h")))) {
