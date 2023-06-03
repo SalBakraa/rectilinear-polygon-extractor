@@ -126,7 +126,7 @@ static void build(void) {
 
 	Cstr lib_name = PATH(BUILD_DIR, CONCAT("lib", BINARY_NAME, ".lib"));
 	if (IS_NEWER(out_file, lib_name)) {
-		CMD("lib", out_file);
+		CMD("lib", out_file, CONCAT("/OUT:", lib_name));
 	}
 #endif
 
