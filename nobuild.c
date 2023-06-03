@@ -106,9 +106,15 @@ int main(int argc, char **argv)
 	GO_REBUILD_URSELF(argc, argv);
 
 	int clean_build_files = 0;
+	int dump_cflags = 0;
 	for (int i = 1; i < argc; ++i) {
 		if (STARTS_WITH(argv[i], "--clean")) {
 			clean_build_files = 1;
+			continue;
+		}
+
+		if (STARTS_WITH(argv[i], "--make-ccls-file")) {
+			dump_cflags = 1;
 			continue;
 		}
 	}
@@ -118,9 +124,9 @@ int main(int argc, char **argv)
 		RM(PATH(SRC_DIR, ".ccls"));
 	}
 
-#ifdef DEBUG
-	create_ccls_file(argv[0]);
-#endif
+	if (dump_cflags) {
+		create_ccls_file(argv[0]);
+	}
 
 	build();
 
